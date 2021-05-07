@@ -36,7 +36,8 @@ public:
 
 	enum InputIds
     {
-        NUM_INPUTS = 0
+		BPM_INPUT = 0,
+        NUM_INPUTS
 	};
 
 	enum OutputIds
@@ -86,6 +87,7 @@ private:
     void clampTick(int& tick, int maxTicks);
 
     int m_lastTick = -1;
+	float m_bpm = 120;
     bool m_synced = false;
     bool m_lastPlayingState = false;
     bool m_startStopEnabled = false;
@@ -123,6 +125,22 @@ void Link2::process(const ProcessArgs& args)
         const auto time = linkPeer->clock().micros();
         const auto timeline = linkPeer->captureAppSessionState();
 
+
+		if (inputs[BPM_INPUT].active) {
+			float bpm_in = inputs[BPM_INPUT].value * 100;
+			if (bpm_in>999){
+				bpm_in = 999;
+			}
+			if (bpm_in<20){
+				bpm_in = 20;
+			}
+			if (bpm_in != m_bpm) {
+				m_bpm = bpm_in;
+				auto timeline = linkPeer->captureAudioSessionState();
+				timeline.setTempo(m_bpm, time);
+				linkPeer->commitAudioSessionState(timeline);
+			}
+		}
         tempo = timeline.tempo();
         phase = timeline.phaseAtTime(time, beats_per_bar);
 
@@ -203,7 +221,7 @@ void Link2::process(const ProcessArgs& args)
             outputs[RESET_OUTPUT].setVoltage(reset ? 10.0 : 0.0);
             lights[RESET_LIGHT].setBrightness(reset ? 1.0 : 0.0);
 
-            outputs[BPM_OUTPUT].value = log2f(tempo / 120.f);
+            outputs[BPM_OUTPUT].value = tempo / 100.f;//log2f(tempo / 100.f);
         }
         else
         {
@@ -291,6 +309,8 @@ Link2Widget::Link2Widget(Link2* module)
 
     addChild(createWidget<StellareScrew>(Vec(0, 0)));
     addChild(createWidget<StellareScrew>(Vec(box.size.x - 15, 365)));
+	
+	addInput(createInput<StellareJack>(Vec(19, 30), module, Link2::BPM_INPUT));
 
     addParam(createParam<StellarePushButton>(Vec(19.5, 209.5), module, Link2::SYNC_PARAM));
     addParam(createParam<StellareKnob01>(Vec(16.2, 57.5), module, Link2::OFFSET_PARAM));

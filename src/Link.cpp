@@ -35,7 +35,8 @@ public:
 
 	enum InputIds
     {
-        NUM_INPUTS = 0
+		BPM_INPUT = 0,
+        NUM_INPUTS
 	};
 
 	enum OutputIds
@@ -75,7 +76,8 @@ public:
 
 private:
     void clampTick(int& tick, int maxTicks);
-
+	
+	float m_bpm = 120;
     int m_lastTick = -1;
     bool m_synced = false;
 };
@@ -110,6 +112,21 @@ void Link::process(const ProcessArgs& args)
         const auto time = linkPeer->clock().micros();
         const auto timeline = linkPeer->captureAppSessionState();
         phase = timeline.phaseAtTime(time, beats_per_bar);
+		if (inputs[BPM_INPUT].active) {
+			float bpm_in = inputs[BPM_INPUT].value * 100;
+			if (bpm_in>999){
+				bpm_in = 999;
+			}
+			if (bpm_in<20){
+				bpm_in = 20;
+			}
+			if (bpm_in != m_bpm) {
+				m_bpm = bpm_in;
+				auto timeline = linkPeer->captureAudioSessionState();
+				timeline.setTempo(m_bpm, time);
+				linkPeer->commitAudioSessionState(timeline);
+			}
+		}
     }
 
     const double offset = params[OFFSET_PARAM].getValue() * (5.0 * tick_length);
@@ -183,10 +200,12 @@ LinkWidget::LinkWidget(Link* module)
     panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/Link.svg")));
     addChild(panel);
 
-		addChild(createWidget<StellareScrew>(Vec(0, 0)));
-		addChild(createWidget<StellareScrew>(Vec(box.size.x - 15, 365)));
+	addChild(createWidget<StellareScrew>(Vec(0, 0)));
+	addChild(createWidget<StellareScrew>(Vec(box.size.x - 15, 365)));
 
-    addParam(createParam<StellarePushButton>(Vec(19.7, 155), module, Link::SYNC_PARAM));
+    addInput(createInput<StellareJack>(Vec(19, 30), module, Link::BPM_INPUT));
+	
+	addParam(createParam<StellarePushButton>(Vec(19.7, 155), module, Link::SYNC_PARAM));
     addParam(createParam<StellareKnob01>(Vec(16.2, 58), module, Link::OFFSET_PARAM));
     addParam(createParam<StellareKnob01>(Vec(16.2, 105.7), module, Link::SWING_PARAM));
 
