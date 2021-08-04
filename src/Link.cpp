@@ -105,13 +105,9 @@ void Link::process(const ProcessArgs& args)
 
     double phase = 0.0;
 
-    auto linkPeer = LinkPeer::get();
-
-    if (linkPeer)
+    if (api0::ablLink)
     {
-        const auto time = linkPeer->clock().micros();
-        const auto timeline = linkPeer->captureAppSessionState();
-        phase = timeline.phaseAtTime(time, beats_per_bar);
+        phase = ABLLinkPhaseAtTime(api0::INSTANCE->ablState, api0::engineGetCurrentStepHostTime(), beats_per_bar);
         if (inputs[BPM_INPUT].active) {
             float bpm_in = inputs[BPM_INPUT].value;
             if (bpm_in < 0) {
@@ -131,9 +127,9 @@ void Link::process(const ProcessArgs& args)
             
             if (bpm_in != m_bpm) {
                 m_bpm = bpm_in;
-                auto timeline = linkPeer->captureAudioSessionState();
-                timeline.setTempo(m_bpm, time);
-                linkPeer->commitAudioSessionState(timeline);
+                auto timeline = ABLLinkCaptureAudioSessionState(api0::ablLink);
+				ABLLinkSetTempo(timeline, m_bpm, api0::engineGetCurrentStepHostTime());
+				ABLLinkCommitAudioSessionState(api0::ablLink, timeline);
             }
 
 		}
