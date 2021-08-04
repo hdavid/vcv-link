@@ -36,7 +36,7 @@ public:
 
 	enum InputIds
     {
-		BPM_INPUT = 0,
+        BPM_INPUT = 0,
         NUM_INPUTS
 	};
 
@@ -87,7 +87,7 @@ private:
     void clampTick(int& tick, int maxTicks);
 
     int m_lastTick = -1;
-	float m_bpm = 120;
+    float m_bpm = 120;
     bool m_synced = false;
     bool m_lastPlayingState = false;
     bool m_startStopEnabled = false;
@@ -126,21 +126,31 @@ void Link2::process(const ProcessArgs& args)
         const auto timeline = linkPeer->captureAppSessionState();
 
 
-		if (inputs[BPM_INPUT].active) {
-			float bpm_in = inputs[BPM_INPUT].value * 100;
-			if (bpm_in>999){
-				bpm_in = 999;
-			}
-			if (bpm_in<20){
-				bpm_in = 20;
-			}
-			if (bpm_in != m_bpm) {
-				m_bpm = bpm_in;
-				auto timeline = linkPeer->captureAudioSessionState();
-				timeline.setTempo(m_bpm, time);
-				linkPeer->commitAudioSessionState(timeline);
-			}
-		}
+        if (inputs[BPM_INPUT].active) {
+            float bpm_in = inputs[BPM_INPUT].value;
+            if (bpm_in < 0) {
+                //use negative values for linear mapping, using 100bpm.
+                bpm_in = -1 * bpm_in * 100;
+            } else {
+                // and positive for logarithmic, using 120
+                bpm_in = powf(bpm_in, 2.0f) * 120;
+            } 
+
+            //fix incorrect bpm values
+            if (bpm_in>999){
+                bpm_in = 999;
+            }
+            if (bpm_in<20){
+                bpm_in = 20;
+            }
+            
+            if (bpm_in != m_bpm) {
+                m_bpm = bpm_in;
+                auto timeline = linkPeer->captureAudioSessionState();
+                timeline.setTempo(m_bpm, time);
+                linkPeer->commitAudioSessionState(timeline);
+            }
+        }
         tempo = timeline.tempo();
         phase = timeline.phaseAtTime(time, beats_per_bar);
 
@@ -221,7 +231,7 @@ void Link2::process(const ProcessArgs& args)
             outputs[RESET_OUTPUT].setVoltage(reset ? 10.0 : 0.0);
             lights[RESET_LIGHT].setBrightness(reset ? 1.0 : 0.0);
 
-            outputs[BPM_OUTPUT].value = tempo / 100.f;//log2f(tempo / 100.f);
+            outputs[BPM_OUTPUT].value = log2f(tempo / 100.f);
         }
         else
         {
